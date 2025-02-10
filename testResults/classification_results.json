@@ -1,0 +1,224 @@
+{
+  "classes": [
+    {
+      "name": "Account and Service Issues",
+      "description": "Complaints, questions, or issues related to Vodafone accounts, billing, service disruptions (internet, calls), and technical problems. This includes requests for assistance and reports of unsatisfactory service.",
+      "keywords": [
+        "account",
+        "billing",
+        "service",
+        "internet",
+        "network",
+        "problem",
+        "issue",
+        "قطع",
+        "مشكلة",
+        "النت",
+        "الفاتورة",
+        "رصيد"
+      ],
+      "examples": [
+        "باقي اكتر من 15 يوم هدايا فودافون كاش اللي هي الكاش باك والوحدات متوقفه بدون سبب",
+        "النت Vdsl قاطع والفواتير مدفوعه والاشتراك متجدد ليه بتعملوا كده",
+        "ليه مش شغاله Sumsung glaxy a 70 وليه بتاخدو نت كتير لما اشحن كارت او باقه"
+      ]
+    },
+    {
+      "name": "Vodafone Cash and Financial Transactions",
+      "description": "Comments related to Vodafone Cash services, including transfers, balance issues, promotions, and problems with using the service. Also includes questions about linking accounts and issues with third-party payment services like Fawry.",
+      "keywords": [
+        "vodafone cash",
+        "cash",
+        "transfer",
+        "محفظة",
+        "فلوس",
+        "تحويل",
+        "رصيد",
+        "فوري",
+        "balance",
+        "opportunities",
+        "فرص"
+      ],
+      "examples": [
+        "محفظتي كل متعدي ال مليون فرصه ترجع تاني تثبت على مليون فرصه",
+        "السلام عليكم يا جماعه محدش يحول رصيد او فودافون كاش من فوري لفودافون فلوسي ضاعت",
+        "باقي اكتر من 15 يوم هدايا فودافون كاش اللي هي الكاش باك والوحدات متوقفه بدون سبب"
+      ]
+    },
+    {
+      "name": "Promotions and Offers",
+      "description": "Questions about current promotions, offers, and deals from Vodafone, including eligibility, availability, and terms and conditions. This includes perceived misleading or 'fake' offers.",
+      "keywords": [
+        "offer",
+        "promotion",
+        "عروض",
+        "خصم",
+        "deals",
+        "وهمية",
+        "شاشات",
+        "تقسيط",
+        "الكلمة الحلوة",
+        "365"
+      ],
+      "examples": [
+        "العرض مازال متاح ؟! وهل ايضا لو متاح العرض فمتاح في الفروع ولا اون لاين فقط ؟!",
+        "فين عروض الشاشات",
+        "الشركه الا بتنزل عروض وهمية على برنامج انا فودافون"
+      ]
+    },
+    {
+      "name": "Customer Service and Support",
+      "description": "Comments about the quality of Vodafone's customer service, including response times, helpfulness, and overall satisfaction with the support provided. This includes requests for direct assistance and complaints about unhelpful staff.",
+      "keywords": [
+        "customer service",
+        "خدمة عملاء",
+        "support",
+        "رد",
+        "تواصل",
+        "موظفين",
+        "خاص",
+        "DM",
+        "help",
+        "مساعدة",
+        "unresponsive"
+      ],
+      "examples": [
+        "حد يرد خاص",
+        "ممكن حد يرد dm",
+        "@VodafoneEgypt انا مش عايز الرد الالي انا عايز حد يكلمني عشان يقدر يساعدني"
+      ]
+    },
+    {
+      "name": "Network Coverage and Quality",
+      "description": "Feedback on the quality and reliability of Vodafone's network coverage, including signal strength, data speeds, and call quality. This includes comparisons with other providers.",
+      "keywords": [
+        "coverage",
+        "تغطية",
+        "network",
+        "شبكة",
+        "signal",
+        "إشارة",
+        "speed",
+        "سرعة",
+        "wifi",
+        "ضعيفة",
+        "call failed"
+      ],
+      "examples": [
+        "@VodafoneOMN شبكه فودافون ضعيفه في بعض المناطق ما الحل",
+        "@VodafoneEgypt ما شاء الله كل دقيقتين call failed ولا اروع من الي قبليه",
+        "@VodafoneOMN أنا مشترك بباقة فودافون من سنتين وخذيت باقة ثانية من شركة أخرى على أساس أقفل باقة فودافون بس للأسف ما طاوعني قلبي 🤣 لأني بصراحة اشوفها الانسب واي مكان تسافر وترجع والباقة ما تخلص"
+      ]
+    },
+    {
+      "name": "Device and Router Inquiries",
+      "description": "Questions about Vodafone's devices (phones, routers), including pricing, availability, and compatibility. This includes issues with router performance and requests for technical support.",
+      "keywords": [
+        "router",
+        "راوتر",
+        "phone",
+        "هاتف",
+        "device",
+        "جهاز",
+        "price",
+        "سعر",
+        "تقسيط",
+        "هوائي",
+        "شاشه"
+      ],
+      "examples": [
+        "جماعه سعر روتر قد اي",
+        "راوتر هوائي بكام",
+        "الرواتر الهوائية لو جبته علي نظام ريد كل شهر قسط كام"
+      ]
+    },
+    {
+      "name": "General Inquiries and Information Requests",
+      "description": "General questions about Vodafone's services, plans, and policies. This includes requests for information about specific features, codes, or procedures.",
+      "keywords": [
+        "info",
+        "معلومات",
+        "question",
+        "سؤال",
+        "code",
+        "كود",
+        "الفرق",
+        "فاتورة",
+        "كارت",
+        "نظام",
+        "تجوال"
+      ],
+      "examples": [
+        "الخط بكام",
+        "ممكن اعرف كود تفعيل عرض النت الشهر الثانى قبل معاده",
+        "Vodafone Egypt ممكن اعرف ايه الفرق بين نظام الكارت ونظام الفاتورة"
+      ]
+    },
+    {
+      "name": "Negative Sentiment and Complaints",
+      "description": "Comments expressing dissatisfaction, anger, or frustration with Vodafone. This includes accusations of theft, fraud, and poor service.",
+      "keywords": [
+        "حرامية",
+        "negative",
+        "سلبي",
+        "bad",
+        "سيء",
+        "fraud",
+        "نصب",
+        "theft",
+        "سرقة",
+        "استفزاز",
+        "حقيره",
+        "افشل"
+      ],
+      "examples": [
+        "#فودافون شركة الحرامية",
+        "تعامل سيء جدا وخدمة لا تليق ورصيد مستباح حاجه اخر استفذاذ",
+        "انتو عالم فضيه"
+      ]
+    },
+    {
+      "name": "Positive Sentiment and Appreciation",
+      "description": "Comments expressing positive feelings towards Vodafone, including praise for their services, products, or customer support.",
+      "keywords": [
+        "positive",
+        "ايجابي",
+        "good",
+        "جيد",
+        "شكرا",
+        "thanks",
+        "عاشو",
+        "ممتاز",
+        "بالتوفيق",
+        "احله ناس"
+      ],
+      "examples": [
+        "❤",
+        "شكرا ليك يا فندم",
+        "@VodafoneOMN شكرا فودافون من القلب للقلب"
+      ]
+    },
+    {
+      "name": "Competition and Switching Providers",
+      "description": "Comments mentioning other mobile providers (e.g., WE, Etisalat, Orange, Ooredoo, Omantel) and discussing switching between them. This includes comparisons of services and expressions of intent to switch.",
+      "keywords": [
+        "we",
+        "اتصالات",
+        "orange",
+        "etisalat",
+        "ooredoo",
+        "omantel",
+        "switch",
+        "تحويل",
+        "تغيير",
+        "منافسة",
+        "باقة"
+      ],
+      "examples": [
+        "هخلص الباقة واحول Orange",
+        "لو محتاج اغير من we ايه التفاصيل ؟",
+        "@VodafoneOMN قريبا العودة إلى @Omantel بعد تغيير رقمي من عمانتل الى فودافون…"
+      ]
+    }
+  ]
+}

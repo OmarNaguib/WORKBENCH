@@ -1,0 +1,203 @@
+{
+  "classes": [
+    {
+      "name": "Vodafone Cash Services and Promotions",
+      "description": "Concerns, inquiries, or feedback related to Vodafone Cash services, including transactions, rewards programs (like Shokran), promotions, and associated issues such as transfer problems or cashback discrepancies.",
+      "keywords": [
+        "Vodafone Cash",
+        "cash back",
+        "rewards",
+        "Shokran",
+        "transfer",
+        "million",
+        "فرصة",
+        "مسابقة",
+        "محفظة",
+        "competition",
+        "promotions",
+        "offers",
+        "cashback",
+        "transactions"
+      ],
+      "examples": [
+        "بقالي اكتر من 15 يوم هدايا فودافون كاش اللي هي الكاش باك والوحدات متوقفه بدون سبب",
+        "كاروان كاروانی محدش عارف حاجه انا كلمت خدمه عملاء فودافون كاش اساسا مش عرفين اي شاء عن المسابقه",
+        "محفظتي كل متعدي ال مليون فرصه ترجع تاني تثبت على مليون فرصه",
+        "هو برنامج شكرا مكافأت عطلان"
+      ]
+    },
+    {
+      "name": "Network and Service Quality Issues",
+      "description": "Complaints and negative feedback regarding Vodafone's network performance (internet speed, coverage), service quality, billing practices, and customer service experiences. Includes mentions of misleading offers or perceived unfairness.",
+      "keywords": [
+        "network",
+        "internet",
+        "speed",
+        "data",
+        "service",
+        "coverage",
+        "complaint",
+        "slow",
+        "billing",
+        "offers",
+        "customer service",
+        "وهمية",
+        "حرامية",
+        "تعامل سيء",
+        "نت كتير",
+        "تغطية",
+        "unfair",
+        "misleading"
+      ],
+      "examples": [
+        "#فودافون شركة الحرامية",
+        "ليه مش شغاله Sumsung glaxy a 70 وليه بتاخدو نت كتير لما اشحن كارت او باقه",
+        "ممكن يا شركة فودافون لو مافيهاش إساءة يعني تصلحوا ليا النت عشان كدا كتير بجد 🥲",
+        "تعامل سيء جدا وخدمة لا تليق ورصيد مستباح حاجه اخر استفذاذ"
+      ]
+    },
+    {
+      "name": "Account and Line Management",
+      "description": "Issues related to Vodafone account management, line activation, registration, ownership transfer, and general access problems.",
+      "keywords": [
+        "line",
+        "account",
+        "register",
+        "ownership",
+        "activation",
+        "اسم",
+        "تسجيل",
+        "خط",
+        "باسم",
+        "المفوض",
+        "فرع",
+        "جواب",
+        "access",
+        "manage"
+      ],
+      "examples": [
+        "معايا خط فودافون شركات جبت جواب من المفوض وديته فرع ابو قير الخط لسه ماشتغلش",
+        "ابنتى معها خط فودافون منذ أكثر من 15سنه الخط متسجل باسم واحده ثانيه",
+        "لو سمحت معاية خط للنت بتاع الواير ليس"
+      ]
+    },
+    {
+      "name": "Plans, Pricing, and Availability Inquiries",
+      "description": "Questions about Vodafone's service plans, pricing, device availability (routers, screens, etc.), and specific promotional offers.",
+      "keywords": [
+        "price",
+        "cost",
+        "plan",
+        "offer",
+        "available",
+        "router",
+        "screen",
+        "كام",
+        "بكام",
+        "سعر",
+        "عروض",
+        "الشاشات",
+        "الخط بكام",
+        "devices"
+      ],
+      "examples": [
+        "الخط بكام",
+        "جماعه سعر روتر قد اي",
+        "فين  عروض الشاشات",
+        "سعر خط فودافون العادي كام"
+      ]
+    },
+    {
+      "name": "Customer Support Requests and Information Seeking",
+      "description": "Requests for assistance from Vodafone customer support, inquiries for specific information, or seeking clarification on procedures and services.",
+      "keywords": [
+        "support",
+        "help",
+        "information",
+        "DM",
+        "رد",
+        "تفعيل",
+        "كود",
+        "ازاى",
+        "ازاي",
+        "تفعيل",
+        "خاص",
+        "ممكن اعرف",
+        "حد يرد",
+        "clarification",
+        "procedures"
+      ],
+      "examples": [
+        "ممكن اعرف كود تفعيل عرض النت الشهر الثانى قبل معاده",
+        "حد يرد خاص",
+        "Vodafone Egypt ممكن اعرف ايه الفرق بين نظام الكارت ونظام الفاتورة",
+        "@VodafoneEgypt ممكن تردوا DM"
+      ]
+    },
+    {
+      "name": "Positive Feedback and Recommendations",
+      "description": "Positive comments, recommendations, and praise for Vodafone's services, network coverage, or overall customer experience.",
+      "keywords": [
+        "good",
+        "recommend",
+        "coverage",
+        "satisfied",
+        "شكرا",
+        "اريحية",
+        "انصح",
+        "ممتاز",
+        "رائعه",
+        "praise",
+        "positive experience"
+      ],
+      "examples": [
+        "@VodafoneOMN اعزائي فودافون ، نعلم يقين العلم بأنكم شركة تقدّم خدمات وعروض رائعه جداً",
+        "@VodafoneOMN انا حاليا فالهند واستخدم شبتكم بكل اريحية واتصاالات فالهند وعمان بكل اريحية انصح الجميع بالتغيير الى فودافون"
+      ]
+    },
+    {
+      "name": "Switching Intentions and Alternative Providers",
+      "description": "Discussions about switching to or from Vodafone, exploring alternative mobile or internet providers (e.g., WE, Orange), or expressing intentions to change services.",
+      "keywords": [
+        "switch",
+        "change",
+        "alternative",
+        "we",
+        "orange",
+        "تحويل",
+        "اغير",
+        "هخلص الباقة واحول Orange",
+        "لو محتاج اغير من we ايه التفاصيل ؟",
+        "عايز اغير النت عندى من we/لvodafone",
+        "providers"
+      ],
+      "examples": [
+        "هخلص الباقة واحول Orange",
+        "لو محتاج اغير من we ايه التفاصيل ؟",
+        "عايز اغير النت عندى من we/لvodafone"
+      ]
+    },
+    {
+      "name": "Unclear or General Comments",
+      "description": "General comments, single-word responses, or comments lacking sufficient context to be categorized meaningfully.",
+      "keywords": [
+        "ok",
+        "thanks",
+        "...",
+        ",",
+        "❤",
+        "تمام",
+        "ازاي",
+        "ٔ",
+        "general",
+        "unclear"
+      ],
+      "examples": [
+        "تمام",
+        "❤",
+        "ازاي",
+        "ٔ"
+      ]
+    }
+  ]
+}
