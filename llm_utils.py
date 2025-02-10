@@ -607,3 +607,222 @@ class Classifier:
         results_by_class['summary'] = summary
         
         return results_by_class 
+
+class DataWizard:
+    """Analyzes data based on user questions using filtering and batch processing."""
+    
+    def __init__(self, use_semantic_filter: bool = True):
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            temperature=0,
+            convert_system_message_to_human=True
+        )
+        self.semantic_filter = SemanticFilter() if use_semantic_filter else LLMFilter()
+        
+    def create_analysis_prompt(self) -> ChatPromptTemplate:
+        """Creates a prompt for analyzing filtered data."""
+        template = """You are an expert data analyst specializing in social media content analysis.
+        
+        Your task is to analyze the following collection of social media comments and provide insights related to this question: {question}
+        
+        Comments to analyze:
+        {comments}
+        
+        You must respond with valid JSON only, using this exact format:
+        {{
+            "insights": [
+                {{
+                    "observation": "Key observation or finding",
+                    "evidence": ["Supporting comment 1", "Supporting comment 2"],
+                    "implications": "What this means for the business/users",
+                    "confidence": "High/Medium/Low based on data quality and quantity"
+                }}
+            ],
+            "summary": "Overall summary of findings",
+            "recommendations": [
+                "Action-oriented recommendation 1",
+                "Action-oriented recommendation 2"
+            ]
+        }}
+        
+        Important: Your entire response must be valid JSON. Do not include any other text before or after the JSON.
+        """
+        
+        return ChatPromptTemplate.from_template(template)
+    
+    def create_merge_prompt(self) -> ChatPromptTemplate:
+        """Creates a prompt for merging multiple analysis results."""
+        template = """You are an expert at synthesizing analytical findings.
+        
+        Your task is to analyze multiple sets of insights and merge them into a comprehensive analysis.
+        
+        Previous analyses to merge:
+        {previous_analyses}
+        
+        Original question: {question}
+        
+        You must respond with valid JSON only, using this exact format:
+        {{
+            "insights": [
+                {{
+                    "observation": "Key observation or finding",
+                    "evidence": ["Supporting comment 1", "Supporting comment 2"],
+                    "implications": "What this means for the business/users",
+                    "confidence": "High/Medium/Low based on data quality and quantity"
+                }}
+            ],
+            "summary": "Overall summary of findings",
+            "recommendations": [
+                "Action-oriented recommendation 1",
+                "Action-oriented recommendation 2"
+            ]
+        }}
+        
+        Important:
+        1. Combine similar insights while preserving unique perspectives
+        2. Ensure the summary captures the full scope of findings
+        3. Prioritize recommendations based on evidence strength
+        4. Your entire response must be valid JSON with no other text
+        """
+        
+        return ChatPromptTemplate.from_template(template)
+    
+    async def process_batch(self, texts: List[str], question: str) -> Dict:
+        """Process a batch of texts to generate insights."""
+        prompt = self.create_analysis_prompt()
+        
+        # Format texts for the prompt
+        formatted_texts = "\n".join([f"- {text}" for text in texts[:100]])  # Limit to 100 examples
+        if len(texts) > 100:
+            formatted_texts += f"\n... and {len(texts) - 100} more comments"
+        
+        # Get analysis from LLM
+        chain = prompt | self.llm
+        response = await chain.ainvoke({
+            "question": question,
+            "comments": formatted_texts
+        })
+        
+        # Parse JSON response
+        try:
+            content = response.content.strip()
+            if content.startswith('```json'):
+                content = content[7:]
+            elif content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+            content = content.strip()
+            
+            result = json.loads(content)
+            
+            # Validate the result structure
+            required_keys = {'insights', 'summary', 'recommendations'}
+            if not all(key in result for key in required_keys):
+                raise ValueError("Response missing required keys")
+            
+            return result
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error: {str(e)}")
+            print("Raw response:", response.content)
+            raise ValueError("Could not parse LLM response as JSON")
+        except Exception as e:
+            print(f"Validation Error: {str(e)}")
+            print("Parsed response:", result if 'result' in locals() else 'No result')
+            raise ValueError(f"Invalid response structure: {str(e)}")
+    
+    async def merge_results(self, results: List[Dict], question: str) -> Dict:
+        """Merge multiple analysis results into a comprehensive analysis."""
+        if not results:
+            return {
+                "insights": [],
+                "summary": "No analysis results to merge",
+                "recommendations": []
+            }
+            
+        if len(results) == 1:
+            return results[0]
+            
+        prompt = self.create_merge_prompt()
+        
+        # Get merged analysis from LLM
+        chain = prompt | self.llm
+        response = await chain.ainvoke({
+            "previous_analyses": json.dumps(results, ensure_ascii=False, indent=2),
+            "question": question
+        })
+        
+        # Parse response with same validation as process_batch
+        try:
+            content = response.content.strip()
+            if content.startswith('```json'):
+                content = content[7:]
+            elif content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+            content = content.strip()
+            
+            result = json.loads(content)
+            
+            # Validate the result structure
+            required_keys = {'insights', 'summary', 'recommendations'}
+            if not all(key in result for key in required_keys):
+                raise ValueError("Response missing required keys")
+            
+            return result
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error in merge: {str(e)}")
+            print("Raw response:", response.content)
+            return results[0]  # Return first result if merge fails
+        except Exception as e:
+            print(f"Validation Error in merge: {str(e)}")
+            return results[0]  # Return first result if merge fails
+    
+    async def analyze_question(self, texts: List[str], question: str, batch_size: int = 10000) -> Dict:
+        """
+        Analyze texts based on a user question.
+        
+        Args:
+            texts: List of texts to analyze
+            question: User's question or analysis request
+            batch_size: Number of texts to process in each batch
+            
+        Returns:
+            Dictionary containing insights, summary, and recommendations
+        """
+        print("Filtering relevant texts...")
+        if isinstance(self.semantic_filter, SemanticFilter):
+            results, _ = await self.semantic_filter.filter_texts(texts, question)
+        else:
+            results = await self.semantic_filter.filter_texts(texts, question)
+            
+        # Get relevant texts
+        relevant_texts = [text for i, text in enumerate(texts) if results.get(i, False)]
+        print(f"\nFound {len(relevant_texts)} relevant texts")
+        
+        if not relevant_texts:
+            return {
+                "insights": [],
+                "summary": "No relevant texts found for the given question",
+                "recommendations": ["Consider rephrasing the question or adjusting the filtering criteria"]
+            }
+        
+        print("\nGenerating insights...")
+        all_results = []
+        
+        # Process texts in batches
+        for i in tqdm(range(0, len(relevant_texts), batch_size), desc="Analyzing batches"):
+            batch = relevant_texts[i:i + batch_size]
+            try:
+                batch_result = await self.process_batch(batch, question)
+                all_results.append(batch_result)
+            except Exception as e:
+                print(f"Error processing batch {i//batch_size + 1}: {str(e)}")
+                continue
+        
+        # Merge results
+        final_result = await self.merge_results(all_results, question)
+        return final_result 
