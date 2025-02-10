@@ -5,4 +5,11 @@ pandas==2.2.0
 openpyxl==3.1.2
 langchain==0.1.5
 langchain-openai==0.0.5
-python-dotenv==1.0.1 
+langchain-google-genai==0.0.6
+google-generativeai==0.3.2
+python-dotenv==1.0.1
+numpy==1.26.4
+tqdm==4.66.2
+matplotlib==3.8.3
+seaborn==0.13.2
+pyarrow==15.0.0

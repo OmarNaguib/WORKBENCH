@@ -1,16 +1,155 @@
 from typing import List, Dict, Tuple
 import os
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.output_parsers import BooleanOutputParser
+import numpy as np
+from tqdm import tqdm
+import google.generativeai as genai
 
 load_dotenv()
 
+# Configure Google AI
+genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+
+class SemanticFilter:
+    def __init__(self):
+        self.embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-small",
+            api_key=os.getenv('OPENAI_API_KEY')
+    # cl100k_base encoding.
+    
+        )
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash", 
+            temperature=0
+        )
+        self.boolean_parser = BooleanOutputParser()
+        self.last_threshold = None
+        self.last_similarities = None
+        
+    async def get_embeddings_batch(self, texts: List[str], batch_size: int = 100) -> np.ndarray:
+        """Get embeddings for a list of texts in batches."""
+        all_embeddings = []
+        
+        for i in tqdm(range(0, len(texts), batch_size), desc="Getting embeddings"):
+            batch = texts[i:i + batch_size]
+            batch_embeddings = await self.embeddings.aembed_documents(batch)
+            all_embeddings.extend(batch_embeddings)
+            
+        return np.array(all_embeddings)
+    
+    def calculate_similarities(self, text_embeddings: np.ndarray, criteria_embedding: np.ndarray) -> np.ndarray:
+        """Calculate cosine similarities between text embeddings and criteria embedding."""
+        # Normalize embeddings
+        text_norms = np.linalg.norm(text_embeddings, axis=1, keepdims=True)
+        criteria_norm = np.linalg.norm(criteria_embedding)
+        
+        normalized_texts = text_embeddings / text_norms
+        normalized_criteria = criteria_embedding / criteria_norm
+        
+        # Calculate cosine similarities
+        similarities = np.dot(normalized_texts, normalized_criteria)
+        return similarities
+    
+    async def check_relevance(self, texts: List[str], criteria: str) -> bool:
+        """Ask LLM if the given texts are relevant to the criteria."""
+        template = """You are a precise content filter.
+        Your task is to determine if the following texts are relevant to this criteria: {criteria}
+        
+        Consider these texts as a group and determine if this similarity threshold is appropriate.
+        If these texts are clearly relevant to the criteria, respond with 'YES'.
+        If these texts are not clearly relevant or are borderline, respond with 'NO'.
+        
+        Texts to analyze:
+        {texts}
+        
+        Remember to respond with ONLY 'YES' or 'NO'.
+        """
+        
+        prompt = ChatPromptTemplate.from_template(template)
+        chain = prompt | self.llm | self.boolean_parser
+        
+        formatted_texts = "\n".join([f"- {text}" for text in texts])
+        result = await chain.ainvoke({
+            "criteria": criteria,
+            "texts": formatted_texts
+        })
+        
+        return result
+    
+    async def binary_search_threshold(self, texts: List[str], similarities: np.ndarray, criteria: str, 
+                                    sample_size: int = 5) -> float:
+        """Find optimal similarity threshold using binary search and LLM verification."""
+        # Sort all indices by similarity score
+        sorted_indices = np.argsort(similarities)[::-1]  # Descending order
+        sorted_similarities = similarities[sorted_indices]
+        sorted_texts = [texts[i] for i in sorted_indices]
+        
+        left, right = 0, len(sorted_texts) - 1
+        best_threshold = sorted_similarities[0]  # Start with highest similarity
+        
+        print("\nFinding optimal threshold using binary search...")
+        max_iterations = 10  # Prevent too many API calls
+        
+        for iteration in range(max_iterations):
+            mid = (left + right) // 2
+            print(f"\nIteration {iteration + 1}, checking texts at position {mid}/{len(sorted_texts)}")
+            print(f"Current similarity threshold: {sorted_similarities[mid]:.3f}")
+            
+            # Get sample texts around the middle point
+            start_idx = max(0, mid - sample_size // 2)
+            end_idx = min(len(sorted_texts), mid + sample_size // 2 + 1)
+            sample_texts = sorted_texts[start_idx:end_idx]
+            
+            # Check if these texts are relevant
+            is_relevant = await self.check_relevance(sample_texts, criteria)
+            
+            if is_relevant:
+                # These are relevant, try lower similarity scores (move right)
+                best_threshold = sorted_similarities[mid]
+                left = mid + 1
+            else:
+                # These are not relevant, try higher similarity scores (move left)
+                right = mid - 1
+            
+            # Break if we've converged
+            if left > right:
+                break
+            
+            print(f"Current range: {sorted_similarities[right]:.3f} - {sorted_similarities[left]:.3f}")
+        
+        return best_threshold
+    
+    async def filter_texts(self, texts: List[str], criteria: str) -> Tuple[Dict[int, bool], np.ndarray]:
+        """Filter texts based on semantic similarity to criteria."""
+        print("Getting embeddings for texts...")
+        text_embeddings = await self.get_embeddings_batch(texts)
+        
+        print("Getting embedding for criteria...")
+        criteria_embedding = (await self.embeddings.aembed_documents([criteria]))[0]
+        
+        print("Calculating similarities...")
+        similarities = self.calculate_similarities(text_embeddings, criteria_embedding)
+        
+        # Find threshold using binary search with LLM verification
+        self.last_threshold = await self.binary_search_threshold(texts, similarities, criteria)
+        print(f"\nFinal threshold: {self.last_threshold:.3f}")
+        
+        # Create results dictionary
+        results = {i: sim >= self.last_threshold for i, sim in enumerate(similarities)}
+        
+        # Store similarities for potential use
+        self.last_similarities = similarities
+        
+        return results, similarities
+
 class LLMFilter:
     def __init__(self):
-        self.llm = ChatOpenAI(
-            model="gpt-4o",
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
             temperature=0
         )
         self.boolean_parser = BooleanOutputParser()
