@@ -452,3 +452,158 @@ class LLMFilter:
             all_results.update(batch_results)
             
         return all_results 
+
+class Classifier:
+    """Classifies texts into user-defined classes."""
+    
+    def __init__(self):
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",  # Using pro for more reliable classification
+            temperature=0
+        )
+        
+    def create_classification_prompt(self, classes: List[str], is_multi_class: bool = False) -> ChatPromptTemplate:
+        """Creates a prompt for classifying texts into predefined classes."""
+        template = """You are a precise text classifier specializing in social media content analysis.
+
+        Your task is to classify each text into {classification_type} from the following list:
+        {class_list}
+        - Other (for texts that don't clearly fit into any of the above classes)
+
+        For each text, respond with its index followed by the class name(s), separated by a comma.
+        {format_instruction}
+        
+        Example format:
+        {example_format}
+        
+        Texts to classify:
+        {text_batch}
+        
+        Important:
+        1. Use ONLY the exact class names provided above (including 'Other')
+        2. {class_rule}
+        3. If a text doesn't clearly fit any class, assign it to 'Other'
+        4. Respond with ONLY the index and class assignment(s) for each text, one per line
+        """
+        
+        return ChatPromptTemplate.from_template(template)
+        
+    def format_batch(self, texts_with_indices: List[Tuple[int, str]]) -> str:
+        """Format a batch of texts with their indices for the prompt."""
+        return "\n".join([f"Index {idx}: {text}" for idx, text in texts_with_indices])
+        
+    async def process_batch(self, texts_with_indices: List[Tuple[int, str]], classes: List[str], is_multi_class: bool) -> Dict[int, List[str]]:
+        """Process a batch of texts and return their classifications."""
+        prompt = self.create_classification_prompt(classes, is_multi_class)
+        
+        # Format the batch text
+        batch_text = self.format_batch(texts_with_indices)
+        
+        # Prepare prompt variables
+        if is_multi_class:
+            format_instruction = "For multiple classes, separate them with '|' after the index"
+            example_format = "0,Class A|Class B\n1,Class C\n2,Other"
+            class_rule = "A text can belong to multiple classes if it clearly fits them"
+            classification_type = "multiple classes"
+        else:
+            format_instruction = "Assign exactly one class that best fits the text"
+            example_format = "0,Class A\n1,Class B\n2,Other"
+            class_rule = "Choose the SINGLE most appropriate class for each text"
+            classification_type = "exactly one class"
+            
+        # Get classifications from LLM
+        chain = prompt | self.llm
+        response = await chain.ainvoke({
+            "text_batch": batch_text,
+            "class_list": "\n".join([f"- {cls}" for cls in classes]),
+            "classification_type": classification_type,
+            "format_instruction": format_instruction,
+            "example_format": example_format,
+            "class_rule": class_rule
+        })
+        
+        # Parse response into dictionary
+        results = {}
+        valid_classes = set(classes + ['Other'])
+        
+        for line in response.content.strip().split('\n'):
+            try:
+                idx_str, class_str = line.strip().split(',', 1)
+                idx = int(idx_str)
+                
+                if is_multi_class:
+                    # For multi-class, split on | and validate each class
+                    assigned_classes = [cls.strip() for cls in class_str.split('|')]
+                    valid_assignments = [cls for cls in assigned_classes if cls in valid_classes]
+                    if not valid_assignments:  # If no valid classes found, assign to Other
+                        valid_assignments = ['Other']
+                    results[idx] = valid_assignments
+                else:
+                    # For single-class, validate the assigned class
+                    assigned_class = class_str.strip()
+                    if assigned_class not in valid_classes:
+                        assigned_class = 'Other'
+                    results[idx] = [assigned_class]
+                    
+            except (ValueError, IndexError):
+                # If there's any error parsing, assign to Other
+                if 'idx' in locals():
+                    results[idx] = ['Other']
+                continue
+                
+        return results
+
+    async def classify_texts(
+        self, 
+        texts: List[str], 
+        classes: List[str], 
+        is_multi_class: bool = False,
+        batch_size: int = 300
+    ) -> Dict[str, List[Dict]]:
+        """
+        Classify texts into predefined classes.
+        
+        Args:
+            texts: List of texts to classify
+            classes: List of class names to use for classification
+            is_multi_class: Whether a text can belong to multiple classes
+            batch_size: Number of texts to process in each batch
+            
+        Returns:
+            Dictionary with class names as keys and lists of matching texts as values
+        """
+        all_results = {}
+        
+        # Process texts in batches
+        for i in tqdm(range(0, len(texts), batch_size), desc="Classifying texts"):
+            batch_texts = texts[i:i + batch_size]
+            # Create list of (index, text) tuples for this batch
+            batch_with_indices = [(idx, text) for idx, text in enumerate(batch_texts, start=i)]
+            
+            # Process batch and update results
+            batch_results = await self.process_batch(batch_with_indices, classes, is_multi_class)
+            all_results.update(batch_results)
+        
+        # Organize results by class
+        results_by_class = {cls: [] for cls in classes + ['Other']}
+        
+        for idx, assigned_classes in all_results.items():
+            text_entry = {
+                'text': texts[idx],
+                'index': idx,
+                'classes': assigned_classes
+            }
+            # Add the text to each of its assigned classes
+            for cls in assigned_classes:
+                results_by_class[cls].append(text_entry)
+        
+        # Add summary statistics
+        summary = {
+            'total_texts': len(texts),
+            'class_distribution': {
+                cls: len(entries) for cls, entries in results_by_class.items()
+            }
+        }
+        results_by_class['summary'] = summary
+        
+        return results_by_class 

@@ -48,7 +48,7 @@ async def test_frameworker(input_file: str, target_classes: Optional[int] = None
         )
         
         # Save results
-        output_file = "classification_results.json"
+        output_file = "frameworker_results.json"
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
         print(f"\nResults saved to: {output_file}")
