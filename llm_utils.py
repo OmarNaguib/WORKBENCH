@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 import google.generativeai as genai
 import json
+import pandas as pd
 
 load_dotenv()
 
@@ -826,3 +827,350 @@ class DataWizard:
         # Merge results
         final_result = await self.merge_results(all_results, question)
         return final_result 
+
+class ComparativeAnalyzer:
+    """Performs comparative analysis between two datasets based on user questions."""
+    
+    def __init__(self, use_semantic_filter: bool = True):
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            temperature=0,
+            convert_system_message_to_human=True
+        )
+        self.semantic_filter = SemanticFilter() if use_semantic_filter else LLMFilter()
+        
+    def create_analysis_prompt(self) -> ChatPromptTemplate:
+        """Creates a prompt for analyzing filtered data for one dataset."""
+        template = """You are an expert data analyst specializing in social media content analysis.
+        
+        Dataset Context: {dataset_description}
+        
+        Your task is to analyze the following collection of social media comments and provide insights related to this question: {question}
+        
+        Comments to analyze:
+        {comments}
+        
+        You must respond with valid JSON only, using this exact format:
+        {{
+            "insights": [
+                {{
+                    "observation": "Key observation or finding",
+                    "evidence": ["Supporting comment 1", "Supporting comment 2"],
+                    "implications": "What this means for the business/users",
+                    "confidence": "High/Medium/Low based on data quality and quantity"
+                }}
+            ],
+            "summary": "Overall summary of findings",
+            "key_metrics": {{
+                "sentiment_distribution": {{"positive": "x%", "negative": "y%", "neutral": "z%"}},
+                "main_topics": ["topic1", "topic2", "topic3"],
+                "user_satisfaction_score": "score out of 10"
+            }},
+            "strengths": ["Strength 1", "Strength 2"],
+            "weaknesses": ["Weakness 1", "Weakness 2"]
+        }}
+        
+        Important: Your entire response must be valid JSON. Do not include any other text before or after the JSON.
+        """
+        
+        return ChatPromptTemplate.from_template(template)
+    
+    def create_comparison_prompt(self) -> ChatPromptTemplate:
+        """Creates a prompt for comparing analyses of two datasets."""
+        template = """You are an expert at comparative analysis.
+        
+        Your task is to compare the analyses of two datasets and provide a comprehensive comparison.
+        
+        Dataset 1 ({dataset1_name}):
+        {dataset1_analysis}
+        
+        Dataset 2 ({dataset2_name}):
+        {dataset2_analysis}
+        
+        Original question for comparison: {question}
+        
+        You must respond with valid JSON only, using this exact format:
+        {{
+            "comparative_insights": [
+                {{
+                    "aspect": "Aspect being compared",
+                    "dataset1_position": "How dataset1 performs in this aspect",
+                    "dataset2_position": "How dataset2 performs in this aspect",
+                    "key_differences": "Main differences between the two",
+                    "implications": "What these differences mean"
+                }}
+            ],
+            "summary": "Overall comparative summary",
+            "key_metrics_comparison": {{
+                "sentiment": {{
+                    "dataset1": "summary of dataset1 sentiment",
+                    "dataset2": "summary of dataset2 sentiment",
+                    "difference": "key differences in sentiment"
+                }},
+                "user_satisfaction": {{
+                    "dataset1_score": "x/10",
+                    "dataset2_score": "y/10",
+                    "analysis": "comparison of satisfaction scores"
+                }}
+            }},
+            "competitive_advantages": {{
+                "dataset1": ["advantage1", "advantage2"],
+                "dataset2": ["advantage1", "advantage2"]
+            }},
+            "recommendations": {{
+                "dataset1": ["recommendation1", "recommendation2"],
+                "dataset2": ["recommendation1", "recommendation2"]
+            }}
+        }}
+        
+        Important:
+        1. Focus on meaningful comparisons and contrasts
+        2. Support insights with evidence from both datasets
+        3. Be objective and data-driven
+        4. Your entire response must be valid JSON with no other text
+        """
+        
+        return ChatPromptTemplate.from_template(template)
+    
+    async def process_batch(self, texts: List[str], question: str, dataset_description: str) -> Dict:
+        """Process a batch of texts to generate insights for one dataset."""
+        prompt = self.create_analysis_prompt()
+        
+        # Format texts for the prompt
+        formatted_texts = "\n".join([f"- {text}" for text in texts[:100]])  # Limit to 100 examples
+        if len(texts) > 100:
+            formatted_texts += f"\n... and {len(texts) - 100} more comments"
+        
+        # Get analysis from LLM
+        chain = prompt | self.llm
+        response = await chain.ainvoke({
+            "question": question,
+            "comments": formatted_texts,
+            "dataset_description": dataset_description
+        })
+        
+        # Parse JSON response
+        try:
+            content = response.content.strip()
+            if content.startswith('```json'):
+                content = content[7:]
+            elif content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+            content = content.strip()
+            
+            result = json.loads(content)
+            
+            # Validate the result structure
+            required_keys = {'insights', 'summary', 'key_metrics', 'strengths', 'weaknesses'}
+            if not all(key in result for key in required_keys):
+                raise ValueError("Response missing required keys")
+            
+            return result
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error: {str(e)}")
+            print("Raw response:", response.content)
+            raise ValueError("Could not parse LLM response as JSON")
+        except Exception as e:
+            print(f"Validation Error: {str(e)}")
+            print("Parsed response:", result if 'result' in locals() else 'No result')
+            raise ValueError(f"Invalid response structure: {str(e)}")
+    
+    async def merge_dataset_results(self, results: List[Dict], question: str, dataset_description: str) -> Dict:
+        """Merge multiple analysis results for one dataset."""
+        if not results:
+            return {
+                "insights": [],
+                "summary": "No analysis results to merge",
+                "key_metrics": {
+                    "sentiment_distribution": {"positive": "0%", "negative": "0%", "neutral": "100%"},
+                    "main_topics": [],
+                    "user_satisfaction_score": "0"
+                },
+                "strengths": [],
+                "weaknesses": []
+            }
+            
+        if len(results) == 1:
+            return results[0]
+            
+        # For merging dataset results, we'll reuse the analysis prompt but with merged data
+        prompt = self.create_analysis_prompt()
+        
+        # Get merged analysis from LLM
+        chain = prompt | self.llm
+        response = await chain.ainvoke({
+            "question": question,
+            "comments": "Previous analyses to merge:\n" + json.dumps(results, ensure_ascii=False, indent=2),
+            "dataset_description": dataset_description
+        })
+        
+        # Parse response with same validation as process_batch
+        try:
+            content = response.content.strip()
+            if content.startswith('```json'):
+                content = content[7:]
+            elif content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+            content = content.strip()
+            
+            result = json.loads(content)
+            
+            # Validate the result structure
+            required_keys = {'insights', 'summary', 'key_metrics', 'strengths', 'weaknesses'}
+            if not all(key in result for key in required_keys):
+                raise ValueError("Response missing required keys")
+            
+            return result
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error in merge: {str(e)}")
+            print("Raw response:", response.content)
+            return results[0]  # Return first result if merge fails
+        except Exception as e:
+            print(f"Validation Error in merge: {str(e)}")
+            return results[0]  # Return first result if merge fails
+    
+    async def compare_analyses(self, dataset1_analysis: Dict, dataset2_analysis: Dict, 
+                             dataset1_name: str, dataset2_name: str, question: str) -> Dict:
+        """Compare analyses of two datasets."""
+        prompt = self.create_comparison_prompt()
+        
+        # Get comparative analysis from LLM
+        chain = prompt | self.llm
+        response = await chain.ainvoke({
+            "dataset1_analysis": json.dumps(dataset1_analysis, ensure_ascii=False, indent=2),
+            "dataset2_analysis": json.dumps(dataset2_analysis, ensure_ascii=False, indent=2),
+            "dataset1_name": dataset1_name,
+            "dataset2_name": dataset2_name,
+            "question": question
+        })
+        
+        # Parse response
+        try:
+            content = response.content.strip()
+            if content.startswith('```json'):
+                content = content[7:]
+            elif content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+            content = content.strip()
+            
+            result = json.loads(content)
+            
+            # Validate the result structure
+            required_keys = {'comparative_insights', 'summary', 'key_metrics_comparison', 
+                           'competitive_advantages', 'recommendations'}
+            if not all(key in result for key in required_keys):
+                raise ValueError("Response missing required keys")
+            
+            return result
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error in comparison: {str(e)}")
+            print("Raw response:", response.content)
+            raise ValueError("Could not parse LLM response as JSON")
+        except Exception as e:
+            print(f"Validation Error in comparison: {str(e)}")
+            raise ValueError(f"Invalid response structure: {str(e)}")
+    
+    async def analyze_datasets(self, config: Dict, question: str, batch_size: int = 10000) -> Dict:
+        """
+        Analyze and compare two datasets based on a question.
+        
+        Args:
+            config: Dictionary containing dataset configurations
+                {
+                    "dataset1": {
+                        "file": "path/to/excel1.xlsx",
+                        "description": "Description of dataset 1"
+                    },
+                    "dataset2": {
+                        "file": "path/to/excel2.xlsx",
+                        "description": "Description of dataset 2"
+                    }
+                }
+            question: Question or analysis request
+            batch_size: Number of texts to process in each batch
+            
+        Returns:
+            Dictionary containing comparative analysis results
+        """
+        results = {}
+        
+        # Process each dataset
+        for dataset_key in ["dataset1", "dataset2"]:
+            dataset_config = config[dataset_key]
+            print(f"\nProcessing {dataset_key}...")
+            print(f"Reading data from: {dataset_config['file']}")
+            
+            # Read data
+            df = pd.read_excel(dataset_config['file'])
+            texts = df['Post/comments'].fillna('').tolist()
+            
+            # Filter relevant texts
+            print("Filtering relevant texts...")
+            if isinstance(self.semantic_filter, SemanticFilter):
+                filter_results, _ = await self.semantic_filter.filter_texts(texts, question)
+            else:
+                filter_results = await self.semantic_filter.filter_texts(texts, question)
+                
+            relevant_texts = [text for i, text in enumerate(texts) if filter_results.get(i, False)]
+            print(f"Found {len(relevant_texts)} relevant texts")
+            
+            if not relevant_texts:
+                print(f"Warning: No relevant texts found for {dataset_key}")
+                continue
+            
+            # Process texts in batches
+            print("\nGenerating insights...")
+            batch_results = []
+            
+            for i in tqdm(range(0, len(relevant_texts), batch_size), desc=f"Analyzing {dataset_key}"):
+                batch = relevant_texts[i:i + batch_size]
+                try:
+                    batch_result = await self.process_batch(
+                        batch, 
+                        question, 
+                        dataset_config['description']
+                    )
+                    batch_results.append(batch_result)
+                except Exception as e:
+                    print(f"Error processing batch {i//batch_size + 1}: {str(e)}")
+                    continue
+            
+            # Merge results for this dataset
+            if batch_results:
+                results[dataset_key] = await self.merge_dataset_results(
+                    batch_results,
+                    question,
+                    dataset_config['description']
+                )
+            
+        # If we don't have results for both datasets, we can't compare
+        if len(results) < 2:
+            return {
+                "error": "Insufficient data for comparison",
+                "message": "Could not get results for both datasets",
+                "available_results": results
+            }
+        
+        # Compare the results
+        print("\nGenerating comparative analysis...")
+        comparison = await self.compare_analyses(
+            results["dataset1"],
+            results["dataset2"],
+            config["dataset1"]["description"],
+            config["dataset2"]["description"],
+            question
+        )
+        
+        # Add individual analyses to the result
+        comparison["individual_analyses"] = results
+        
+        return comparison 
