@@ -829,7 +829,7 @@ class DataWizard:
         return final_result 
 
 class ComparativeAnalyzer:
-    """Performs comparative analysis between two datasets based on user questions."""
+    """Performs general comparative analysis between two datasets based on user questions."""
     
     def __init__(self, use_semantic_filter: bool = True):
         self.llm = ChatGoogleGenerativeAI(
@@ -841,13 +841,13 @@ class ComparativeAnalyzer:
         
     def create_analysis_prompt(self) -> ChatPromptTemplate:
         """Creates a prompt for analyzing filtered data for one dataset."""
-        template = """You are an expert data analyst specializing in social media content analysis.
+        template = """You are an expert data analyst specializing in data analysis and pattern recognition.
         
         Dataset Context: {dataset_description}
         
-        Your task is to analyze the following collection of social media comments and provide insights related to this question: {question}
+        Your task is to analyze the following collection of data points and provide insights related to this question: {question}
         
-        Comments to analyze:
+        Data to analyze:
         {comments}
         
         You must respond with valid JSON only, using this exact format:
@@ -855,19 +855,18 @@ class ComparativeAnalyzer:
             "insights": [
                 {{
                     "observation": "Key observation or finding",
-                    "evidence": ["Supporting comment 1", "Supporting comment 2"],
-                    "implications": "What this means for the business/users",
+                    "evidence": ["Supporting data point 1", "Supporting data point 2"],
+                    "implications": "What this means in the context of the analysis",
                     "confidence": "High/Medium/Low based on data quality and quantity"
                 }}
             ],
             "summary": "Overall summary of findings",
             "key_metrics": {{
-                "sentiment_distribution": {{"positive": "x%", "negative": "y%", "neutral": "z%"}},
-                "main_topics": ["topic1", "topic2", "topic3"],
-                "user_satisfaction_score": "score out of 10"
+                "distribution_metrics": {{"category1": "x%", "category2": "y%"}},
+                "main_themes": ["theme1", "theme2", "theme3"],
+                "relevance_score": "score indicating data relevance to question"
             }},
-            "strengths": ["Strength 1", "Strength 2"],
-            "weaknesses": ["Weakness 1", "Weakness 2"]
+            "notable_patterns": ["Pattern 1", "Pattern 2"]
         }}
         
         Important: Your entire response must be valid JSON. Do not include any other text before or after the JSON.
@@ -877,7 +876,7 @@ class ComparativeAnalyzer:
     
     def create_comparison_prompt(self) -> ChatPromptTemplate:
         """Creates a prompt for comparing analyses of two datasets."""
-        template = """You are an expert at comparative analysis.
+        template = """You are an expert at comparative data analysis.
         
         Your task is to compare the analyses of two datasets and provide a comprehensive comparison.
         
@@ -894,33 +893,33 @@ class ComparativeAnalyzer:
             "comparative_insights": [
                 {{
                     "aspect": "Aspect being compared",
-                    "dataset1_position": "How dataset1 performs in this aspect",
-                    "dataset2_position": "How dataset2 performs in this aspect",
+                    "dataset1_position": "How dataset1 presents in this aspect",
+                    "dataset2_position": "How dataset2 presents in this aspect",
                     "key_differences": "Main differences between the two",
-                    "implications": "What these differences mean"
+                    "implications": "What these differences mean for the analysis"
                 }}
             ],
             "summary": "Overall comparative summary",
-            "key_metrics_comparison": {{
-                "sentiment": {{
-                    "dataset1": "summary of dataset1 sentiment",
-                    "dataset2": "summary of dataset2 sentiment",
-                    "difference": "key differences in sentiment"
+            "metric_comparisons": {{
+                "distributions": {{
+                    "dataset1": "summary of dataset1 distributions",
+                    "dataset2": "summary of dataset2 distributions",
+                    "differences": "key distribution differences"
                 }},
-                "user_satisfaction": {{
-                    "dataset1_score": "x/10",
-                    "dataset2_score": "y/10",
-                    "analysis": "comparison of satisfaction scores"
+                "patterns": {{
+                    "common_patterns": ["pattern1", "pattern2"],
+                    "unique_to_dataset1": ["pattern1", "pattern2"],
+                    "unique_to_dataset2": ["pattern1", "pattern2"]
                 }}
             }},
-            "competitive_advantages": {{
-                "dataset1": ["advantage1", "advantage2"],
-                "dataset2": ["advantage1", "advantage2"]
+            "key_findings": {{
+                "similarities": ["similarity1", "similarity2"],
+                "differences": ["difference1", "difference2"]
             }},
-            "recommendations": {{
-                "dataset1": ["recommendation1", "recommendation2"],
-                "dataset2": ["recommendation1", "recommendation2"]
-            }}
+            "recommendations": [
+                "General recommendation 1 based on the comparison",
+                "General recommendation 2 based on the comparison"
+            ]
         }}
         
         Important:
@@ -931,7 +930,7 @@ class ComparativeAnalyzer:
         """
         
         return ChatPromptTemplate.from_template(template)
-    
+
     async def process_batch(self, texts: List[str], question: str, dataset_description: str) -> Dict:
         """Process a batch of texts to generate insights for one dataset."""
         prompt = self.create_analysis_prompt()
@@ -963,7 +962,7 @@ class ComparativeAnalyzer:
             result = json.loads(content)
             
             # Validate the result structure
-            required_keys = {'insights', 'summary', 'key_metrics', 'strengths', 'weaknesses'}
+            required_keys = {'insights', 'summary', 'key_metrics', 'notable_patterns'}
             if not all(key in result for key in required_keys):
                 raise ValueError("Response missing required keys")
             
@@ -985,12 +984,11 @@ class ComparativeAnalyzer:
                 "insights": [],
                 "summary": "No analysis results to merge",
                 "key_metrics": {
-                    "sentiment_distribution": {"positive": "0%", "negative": "0%", "neutral": "100%"},
-                    "main_topics": [],
-                    "user_satisfaction_score": "0"
+                    "distribution_metrics": {},
+                    "main_themes": [],
+                    "relevance_score": "0"
                 },
-                "strengths": [],
-                "weaknesses": []
+                "notable_patterns": []
             }
             
         if len(results) == 1:
@@ -1021,7 +1019,7 @@ class ComparativeAnalyzer:
             result = json.loads(content)
             
             # Validate the result structure
-            required_keys = {'insights', 'summary', 'key_metrics', 'strengths', 'weaknesses'}
+            required_keys = {'insights', 'summary', 'key_metrics', 'notable_patterns'}
             if not all(key in result for key in required_keys):
                 raise ValueError("Response missing required keys")
             
@@ -1064,8 +1062,8 @@ class ComparativeAnalyzer:
             result = json.loads(content)
             
             # Validate the result structure
-            required_keys = {'comparative_insights', 'summary', 'key_metrics_comparison', 
-                           'competitive_advantages', 'recommendations'}
+            required_keys = {'comparative_insights', 'summary', 'metric_comparisons', 
+                           'key_findings', 'recommendations'}
             if not all(key in result for key in required_keys):
                 raise ValueError("Response missing required keys")
             
@@ -1102,6 +1100,7 @@ class ComparativeAnalyzer:
             Dictionary containing comparative analysis results
         """
         results = {}
+        errors = []
         
         # Process each dataset
         for dataset_key in ["dataset1", "dataset2"]:
@@ -1109,68 +1108,187 @@ class ComparativeAnalyzer:
             print(f"\nProcessing {dataset_key}...")
             print(f"Reading data from: {dataset_config['file']}")
             
-            # Read data
-            df = pd.read_excel(dataset_config['file'])
-            texts = df['Post/comments'].fillna('').tolist()
-            
-            # Filter relevant texts
-            print("Filtering relevant texts...")
-            if isinstance(self.semantic_filter, SemanticFilter):
-                filter_results, _ = await self.semantic_filter.filter_texts(texts, question)
-            else:
-                filter_results = await self.semantic_filter.filter_texts(texts, question)
+            try:
+                # Read data
+                df = pd.read_excel(dataset_config['file'])
+                texts = df['Post/comments'].fillna('').tolist()
                 
-            relevant_texts = [text for i, text in enumerate(texts) if filter_results.get(i, False)]
-            print(f"Found {len(relevant_texts)} relevant texts")
-            
-            if not relevant_texts:
-                print(f"Warning: No relevant texts found for {dataset_key}")
-                continue
-            
-            # Process texts in batches
-            print("\nGenerating insights...")
-            batch_results = []
-            
-            for i in tqdm(range(0, len(relevant_texts), batch_size), desc=f"Analyzing {dataset_key}"):
-                batch = relevant_texts[i:i + batch_size]
-                try:
-                    batch_result = await self.process_batch(
-                        batch, 
-                        question, 
+                # Filter relevant texts
+                print("Filtering relevant texts...")
+                if isinstance(self.semantic_filter, SemanticFilter):
+                    filter_results, _ = await self.semantic_filter.filter_texts(texts, question)
+                else:
+                    filter_results = await self.semantic_filter.filter_texts(texts, question)
+                    
+                relevant_texts = [text for i, text in enumerate(texts) if filter_results.get(i, False)]
+                print(f"Found {len(relevant_texts)} relevant texts")
+                
+                if not relevant_texts:
+                    errors.append(f"No relevant texts found for {dataset_key}")
+                    continue
+                
+                # Process texts in batches
+                print("\nGenerating insights...")
+                batch_results = []
+                
+                for i in tqdm(range(0, len(relevant_texts), batch_size), desc=f"Analyzing {dataset_key}"):
+                    batch = relevant_texts[i:i + batch_size]
+                    try:
+                        batch_result = await self.process_batch(
+                            batch, 
+                            question, 
+                            dataset_config['description']
+                        )
+                        batch_results.append(batch_result)
+                    except Exception as e:
+                        print(f"Error processing batch {i//batch_size + 1}: {str(e)}")
+                        continue
+                
+                # Merge results for this dataset
+                if batch_results:
+                    results[dataset_key] = await self.merge_dataset_results(
+                        batch_results,
+                        question,
                         dataset_config['description']
                     )
-                    batch_results.append(batch_result)
-                except Exception as e:
-                    print(f"Error processing batch {i//batch_size + 1}: {str(e)}")
-                    continue
-            
-            # Merge results for this dataset
-            if batch_results:
-                results[dataset_key] = await self.merge_dataset_results(
-                    batch_results,
-                    question,
-                    dataset_config['description']
-                )
-            
-        # If we don't have results for both datasets, we can't compare
+                else:
+                    errors.append(f"Failed to process any batches for {dataset_key}")
+                
+            except Exception as e:
+                error_msg = f"Error processing {dataset_key}: {str(e)}"
+                print(error_msg)
+                errors.append(error_msg)
+                continue
+        
+        # If we don't have results for both datasets, return error with details
         if len(results) < 2:
             return {
                 "error": "Insufficient data for comparison",
                 "message": "Could not get results for both datasets",
-                "available_results": results
+                "details": {
+                    "errors": errors,
+                    "available_results": results
+                }
             }
         
         # Compare the results
         print("\nGenerating comparative analysis...")
-        comparison = await self.compare_analyses(
-            results["dataset1"],
-            results["dataset2"],
-            config["dataset1"]["description"],
-            config["dataset2"]["description"],
-            question
-        )
+        try:
+            comparison = await self.compare_analyses(
+                results["dataset1"],
+                results["dataset2"],
+                config["dataset1"]["description"],
+                config["dataset2"]["description"],
+                question
+            )
+            
+            # Add individual analyses to the result
+            comparison["individual_analyses"] = results
+            
+            return comparison
+            
+        except Exception as e:
+            return {
+                "error": "Comparison failed",
+                "message": str(e),
+                "details": {
+                    "errors": errors + [f"Comparison error: {str(e)}"],
+                    "available_results": results
+                }
+            }
+
+class CompetitiveAnalyzer(ComparativeAnalyzer):
+    """Specialized analyzer for comparing competing businesses/services."""
+    
+    def create_analysis_prompt(self) -> ChatPromptTemplate:
+        """Creates a prompt for analyzing filtered data for one competitor."""
+        template = """You are an expert data analyst specializing in competitive analysis.
         
-        # Add individual analyses to the result
-        comparison["individual_analyses"] = results
+        Dataset Context: {dataset_description}
         
-        return comparison 
+        Your task is to analyze the following collection of customer feedback and provide competitive insights related to this question: {question}
+        
+        Comments to analyze:
+        {comments}
+        
+        You must respond with valid JSON only, using this exact format:
+        {{
+            "insights": [
+                {{
+                    "observation": "Key observation or finding",
+                    "evidence": ["Supporting comment 1", "Supporting comment 2"],
+                    "implications": "What this means for competitive positioning",
+                    "confidence": "High/Medium/Low based on data quality and quantity"
+                }}
+            ],
+            "summary": "Overall summary of findings",
+            "key_metrics": {{
+                "sentiment_distribution": {{"positive": "x%", "negative": "y%", "neutral": "z%"}},
+                "main_topics": ["topic1", "topic2", "topic3"],
+                "user_satisfaction_score": "score out of 10"
+            }},
+            "strengths": ["Competitive strength 1", "Competitive strength 2"],
+            "weaknesses": ["Competitive weakness 1", "Competitive weakness 2"]
+        }}
+        
+        Important: Your entire response must be valid JSON. Do not include any other text before or after the JSON.
+        """
+        
+        return ChatPromptTemplate.from_template(template)
+    
+    def create_comparison_prompt(self) -> ChatPromptTemplate:
+        """Creates a prompt for comparing competitive analyses."""
+        template = """You are an expert at competitive analysis.
+        
+        Your task is to compare the analyses of two competitors and provide a comprehensive competitive comparison.
+        
+        Competitor 1 ({dataset1_name}):
+        {dataset1_analysis}
+        
+        Competitor 2 ({dataset2_name}):
+        {dataset2_analysis}
+        
+        Original question for comparison: {question}
+        
+        You must respond with valid JSON only, using this exact format:
+        {{
+            "comparative_insights": [
+                {{
+                    "aspect": "Competitive aspect being compared",
+                    "competitor1_position": "How competitor1 performs in this aspect",
+                    "competitor2_position": "How competitor2 performs in this aspect",
+                    "key_differences": "Main competitive differences",
+                    "implications": "What these differences mean for market position"
+                }}
+            ],
+            "summary": "Overall competitive comparison summary",
+            "key_metrics_comparison": {{
+                "sentiment": {{
+                    "competitor1": "summary of competitor1 sentiment",
+                    "competitor2": "summary of competitor2 sentiment",
+                    "difference": "key differences in sentiment"
+                }},
+                "user_satisfaction": {{
+                    "competitor1_score": "x/10",
+                    "competitor2_score": "y/10",
+                    "analysis": "comparison of satisfaction scores"
+                }}
+            }},
+            "competitive_advantages": {{
+                "competitor1": ["advantage1", "advantage2"],
+                "competitor2": ["advantage1", "advantage2"]
+            }},
+            "recommendations": {{
+                "competitor1": ["strategic recommendation1", "strategic recommendation2"],
+                "competitor2": ["strategic recommendation1", "strategic recommendation2"]
+            }}
+        }}
+        
+        Important:
+        1. Focus on meaningful competitive comparisons
+        2. Support insights with evidence from both datasets
+        3. Be objective and data-driven
+        4. Your entire response must be valid JSON with no other text
+        """
+        
+        return ChatPromptTemplate.from_template(template) 

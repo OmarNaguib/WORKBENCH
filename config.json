@@ -1,0 +1,10 @@
+{
+    "dataset1": {
+        "file": "vodafone_data.xlsx",
+        "description": "Customer feedback for Vodafone services"
+    },
+    "dataset2": {
+        "file": "etisalat_data.xlsx",
+        "description": "Customer feedback for Etisalat services"
+    }
+}
