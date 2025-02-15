@@ -58,10 +58,10 @@ class Frameworker:
         Important: Your entire response must be valid JSON. Do not include any other text before or after the JSON.
         """
         
-        context_section = f"Additional context about the data:\n{context}" if context else ""
+        context_section = f"your classes directly related to this criteria:\n{context}" if context else ""
         target_classes_instruction = f"You must identify exactly {target_classes} classes." if target_classes else "You should determine the optimal number of classes based on the data, but aim for 5-15 classes unless the data clearly requires more or fewer."
         class_count_instruction = f"exactly {target_classes}" if target_classes else "the optimal number of"
-        reminder_instruction = f"Remember: Return EXACTLY {target_classes} classes, no more, no less." if target_classes else "Remember: Each class should be distinct and meaningful. Don't create too many granular classes or too few broad ones."
+        reminder_instruction = f"Remember: Return EXACTLY {target_classes} classes, no more, no less." if target_classes else "Remember: Each class should be distinct and meaningful. Don't create too many granular classes or too few broad ones."+f"choose only classes directly related to this criteria:\n{context}"
         
         return ChatPromptTemplate.from_template(
             base_template.replace("{context_section}", context_section)
@@ -73,7 +73,7 @@ class Frameworker:
     async def process_batch(self, texts: List[str], context: Optional[str] = None, target_classes: Optional[int] = None) -> Dict:
         """Process a batch of texts to discover classes."""
         prompt = self.create_class_discovery_prompt(context, target_classes)
-        
+        print(f"Prompt: {prompt}")
         # Format texts for the prompt
         formatted_texts = "\n".join([f"- {text}" for text in texts[:100]])  # Limit to 100 examples to avoid token limits
         if len(texts) > 100:
@@ -384,7 +384,19 @@ class LLMFilter:
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",
-            temperature=0
+            temperature=0,
+            safety_settings={
+                "HARASSMENT": "block_none",
+                "HATE_SPEECH": "block_none",
+                "SEXUALLY_EXPLICIT": "block_none",
+                "DANGEROUS_CONTENT": "block_none"
+            },
+            generation_config={
+                "temperature": 0,
+                "top_p": 1,
+                "top_k": 1,
+                "candidate_count": 1,
+            }
         )
         self.boolean_parser = BooleanOutputParser()
         
@@ -409,11 +421,10 @@ class LLMFilter:
         
     def format_batch(self, texts_with_indices: List[Tuple[int, str]]) -> str:
         """Format a batch of texts with their indices for the prompt."""
-        return "\n".join([f"Index {idx}: {text}" for idx, text in texts_with_indices])
+        return "\n".join([f"{idx}: {text}" for idx, text in texts_with_indices])
         
     async def process_batch(self, texts_with_indices: List[Tuple[int, str]], criteria: str) -> Dict[int, bool]:
         """Process a batch of texts and return results mapped to their indices."""
-        print(f"Processing batch with criteria: {criteria}")
         prompt = self.create_filter_prompt(criteria)
         
         # Format the batch text
@@ -428,14 +439,47 @@ class LLMFilter:
         
         # Parse response into dictionary
         results = {}
-        for line in response.content.strip().split('\n'):
-            try:
-                idx_str, result_str = line.strip().split(',')
-                idx = int(idx_str)
-                results[idx] = result_str.strip().lower() == 'true'
-            except (ValueError, IndexError):
-                continue
-                
+        try:
+            # Clean the response content
+            content = response.content.strip()
+            if content.startswith('```'):
+                content = content.split('```')[1]
+            
+            # Process each line
+            for line in content.strip().split('\n'):
+                try:
+                    # Remove any non-essential characters
+                    line = line.strip().replace(' ', '')
+                    if ',' not in line:
+                        continue
+                        
+                    idx_str, result_str = line.split(',', 1)
+                    # Extract just the number from the index
+                    idx = int(''.join(filter(str.isdigit, idx_str)))
+                    # Clean up the result string
+                    result_str = result_str.lower().strip()
+                    results[idx] = result_str == 'true'
+                except (ValueError, IndexError):
+                    continue
+                    
+            # If we got no valid results, try one more time with a simpler format
+            if not results:
+                print("No valid results found, retrying with simpler format...")
+                # Just look for true/false in each line
+                for line in content.strip().split('\n'):
+                    if 'true' in line.lower() or 'false' in line.lower():
+                        try:
+                            # Find the first number in the line
+                            idx = int(''.join(filter(str.isdigit, line.split()[0])))
+                            # Find if true or false appears in the line
+                            results[idx] = 'true' in line.lower()
+                        except (ValueError, IndexError):
+                            continue
+                            
+        except Exception as e:
+            print(f"Error parsing response: {str(e)}")
+            print("Raw response:", response.content)
+            
         return results
 
     async def filter_texts(self, texts: List[str], criteria: str, batch_size: int = 300) -> Dict[int, bool]:
@@ -448,11 +492,23 @@ class LLMFilter:
             # Create list of (index, text) tuples for this batch
             batch_with_indices = [(idx, text) for idx, text in enumerate(batch_texts, start=i)]
             
-            # Process batch and update results
-            batch_results = await self.process_batch(batch_with_indices, criteria)
-            all_results.update(batch_results)
+            try:
+                # Process batch and update results
+                batch_results = await self.process_batch(batch_with_indices, criteria)
+                if batch_results:  # Only update if we got valid results
+                    all_results.update(batch_results)
+                else:
+                    print(f"Warning: No valid results for batch starting at index {i}")
+            except Exception as e:
+                print(f"Error processing batch starting at index {i}: {str(e)}")
+                continue
+        
+        # If we got no results at all, return all texts as relevant
+        if not all_results:
+            print("Warning: No valid results across all batches, accepting all texts")
+            return {i: True for i in range(len(texts))}
             
-        return all_results 
+        return all_results
 
 class Classifier:
     """Classifies texts into user-defined classes."""
@@ -835,7 +891,19 @@ class ComparativeAnalyzer:
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash",
             temperature=0,
-            convert_system_message_to_human=True
+            convert_system_message_to_human=True,
+            safety_settings={
+                "HARASSMENT": "block_none",
+                "HATE_SPEECH": "block_none",
+                "SEXUALLY_EXPLICIT": "block_none",
+                "DANGEROUS_CONTENT": "block_none"
+            },
+            generation_config={
+                "temperature": 0,
+                "top_p": 1,
+                "top_k": 1,
+                "candidate_count": 1,
+            }
         )
         self.semantic_filter = SemanticFilter() if use_semantic_filter else LLMFilter()
         
@@ -1080,55 +1148,71 @@ class ComparativeAnalyzer:
     async def analyze_datasets(self, config: Dict, question: str, batch_size: int = 10000) -> Dict:
         """
         Analyze and compare two datasets based on a question.
-        
-        Args:
-            config: Dictionary containing dataset configurations
-                {
-                    "dataset1": {
-                        "file": "path/to/excel1.xlsx",
-                        "description": "Description of dataset 1"
-                    },
-                    "dataset2": {
-                        "file": "path/to/excel2.xlsx",
-                        "description": "Description of dataset 2"
-                    }
-                }
-            question: Question or analysis request
-            batch_size: Number of texts to process in each batch
-            
-        Returns:
-            Dictionary containing comparative analysis results
         """
         results = {}
         errors = []
+        dataset_stats = {}
         
         # Process each dataset
         for dataset_key in ["dataset1", "dataset2"]:
             dataset_config = config[dataset_key]
-            print(f"\nProcessing {dataset_key}...")
+            print(f"\n{'='*50}")
+            print(f"Processing {dataset_key}...")
             print(f"Reading data from: {dataset_config['file']}")
             
             try:
                 # Read data
                 df = pd.read_excel(dataset_config['file'])
                 texts = df['Post/comments'].fillna('').tolist()
+                dataset_stats[dataset_key] = {
+                    'total_texts': len(texts)
+                }
+                
+                # Log first 10 rows
+                print(f"\nFirst 10 rows of {dataset_key}:")
+                for i, text in enumerate(texts[:10]):
+                    print(f"{i+1}. {text[:100]}...")
                 
                 # Filter relevant texts
-                print("Filtering relevant texts...")
-                if isinstance(self.semantic_filter, SemanticFilter):
-                    filter_results, _ = await self.semantic_filter.filter_texts(texts, question)
-                else:
-                    filter_results = await self.semantic_filter.filter_texts(texts, question)
-                    
-                relevant_texts = [text for i, text in enumerate(texts) if filter_results.get(i, False)]
-                print(f"Found {len(relevant_texts)} relevant texts")
+                print(f"\nFiltering relevant texts for {dataset_key}...")
+                print(f"Filter type: {'Semantic' if isinstance(self.semantic_filter, SemanticFilter) else 'LLM'}")
                 
-                if not relevant_texts:
-                    errors.append(f"No relevant texts found for {dataset_key}")
+                try:
+                    if isinstance(self.semantic_filter, SemanticFilter):
+                        filter_results, similarities = await self.semantic_filter.filter_texts(texts, question)
+                        print(f"Semantic filter threshold: {self.semantic_filter.last_threshold:.3f}")
+                    else:
+                        filter_results = await self.semantic_filter.filter_texts(texts, question)
+                    
+                    relevant_texts = [text for i, text in enumerate(texts) if filter_results.get(i, False)]
+                    dataset_stats[dataset_key]['filtered_texts'] = len(relevant_texts)
+                    
+                    print(f"\nFiltering results for {dataset_key}:")
+                    print(f"Total texts: {len(texts)}")
+                    print(f"Filtered texts: {len(relevant_texts)}")
+                    print(f"Filter ratio: {len(relevant_texts)/len(texts)*100:.1f}%")
+                    
+                    if relevant_texts:
+                        print("\nFirst 5 filtered texts:")
+                        for i, text in enumerate(relevant_texts[:5]):
+                            print(f"{i+1}. {text[:100]}...")
+                    
+                except Exception as filter_error:
+                    error_msg = f"Error during filtering for {dataset_key}: {str(filter_error)}"
+                    print(f"ERROR: {error_msg}")
+                    errors.append(error_msg)
+                    continue
+                
+                if len(relevant_texts) < 5:  # Minimum threshold for analysis
+                    error_msg = f"Insufficient relevant texts found for {dataset_key}. "
+                    error_msg += f"Only {len(relevant_texts)} texts matched out of {len(texts)} total texts. "
+                    error_msg += "Try adjusting your question to be more general or use different filter criteria."
+                    print(f"ERROR: {error_msg}")
+                    errors.append(error_msg)
                     continue
                 
                 # Process texts in batches
-                print("\nGenerating insights...")
+                print(f"\nGenerating insights for {dataset_key}...")
                 batch_results = []
                 
                 for i in tqdm(range(0, len(relevant_texts), batch_size), desc=f"Analyzing {dataset_key}"):
@@ -1140,36 +1224,65 @@ class ComparativeAnalyzer:
                             dataset_config['description']
                         )
                         batch_results.append(batch_result)
-                    except Exception as e:
-                        print(f"Error processing batch {i//batch_size + 1}: {str(e)}")
+                        
+                        # Log first batch result structure
+                        if i == 0:
+                            print(f"\nSample batch result structure for {dataset_key}:")
+                            print(json.dumps(batch_result, indent=2)[:500] + "...")
+                            
+                    except Exception as batch_error:
+                        error_msg = f"Error processing batch {i//batch_size + 1}: {str(batch_error)}"
+                        print(f"ERROR: {error_msg}")
                         continue
                 
                 # Merge results for this dataset
                 if batch_results:
-                    results[dataset_key] = await self.merge_dataset_results(
-                        batch_results,
-                        question,
-                        dataset_config['description']
-                    )
+                    try:
+                        results[dataset_key] = await self.merge_dataset_results(
+                            batch_results,
+                            question,
+                            dataset_config['description']
+                        )
+                        print(f"\nSuccessfully merged results for {dataset_key}")
+                        print(f"Number of insights: {len(results[dataset_key].get('insights', []))}")
+                        print(f"Has key_metrics: {'key_metrics' in results[dataset_key]}")
+                        print(f"Has notable_patterns: {'notable_patterns' in results[dataset_key]}")
+                    except Exception as merge_error:
+                        error_msg = f"Error merging results for {dataset_key}: {str(merge_error)}"
+                        print(f"ERROR: {error_msg}")
+                        errors.append(error_msg)
                 else:
-                    errors.append(f"Failed to process any batches for {dataset_key}")
+                    error_msg = f"Failed to process any batches for {dataset_key}. "
+                    error_msg += "This might indicate an issue with the analysis model."
+                    print(f"ERROR: {error_msg}")
+                    errors.append(error_msg)
                 
             except Exception as e:
                 error_msg = f"Error processing {dataset_key}: {str(e)}"
-                print(error_msg)
+                print(f"ERROR: {error_msg}")
                 errors.append(error_msg)
                 continue
         
         # If we don't have results for both datasets, return error with details
         if len(results) < 2:
-            return {
+            error_response = {
                 "error": "Insufficient data for comparison",
                 "message": "Could not get results for both datasets",
                 "details": {
                     "errors": errors,
-                    "available_results": results
+                    "dataset_stats": dataset_stats,
+                    "available_results": results,
+                    "recommendations": [
+                        "Try adjusting your question to be more general",
+                        "Check if your datasets contain relevant information for the comparison",
+                        "Consider using a different filter type (semantic vs LLM)",
+                        "Ensure both datasets have sufficient data for comparison"
+                    ]
                 }
             }
+            print("\nError Response:")
+            print(json.dumps(error_response, indent=2))
+            return error_response
         
         # Compare the results
         print("\nGenerating comparative analysis...")
@@ -1182,24 +1295,42 @@ class ComparativeAnalyzer:
                 question
             )
             
-            # Add individual analyses to the result
+            # Add individual analyses and stats to the result
             comparison["individual_analyses"] = results
+            comparison["dataset_stats"] = dataset_stats
+            
+            print("\nSuccessful comparison:")
+            print(f"Number of comparative insights: {len(comparison.get('comparative_insights', []))}")
+            print(f"Has metric_comparisons: {'metric_comparisons' in comparison}")
+            print(f"Has key_findings: {'key_findings' in comparison}")
             
             return comparison
             
         except Exception as e:
-            return {
+            error_response = {
                 "error": "Comparison failed",
                 "message": str(e),
                 "details": {
                     "errors": errors + [f"Comparison error: {str(e)}"],
-                    "available_results": results
+                    "dataset_stats": dataset_stats,
+                    "available_results": results,
+                    "recommendations": [
+                        "Try simplifying your comparison question",
+                        "Check if the data in both datasets is comparable",
+                        "Ensure the question is relevant to both datasets"
+                    ]
                 }
             }
+            print("\nError Response:")
+            print(json.dumps(error_response, indent=2))
+            return error_response
 
 class CompetitiveAnalyzer(ComparativeAnalyzer):
     """Specialized analyzer for comparing competing businesses/services."""
     
+    def __init__(self, use_semantic_filter: bool = True):
+        super().__init__(use_semantic_filter)  # Use parent class initialization
+
     def create_analysis_prompt(self) -> ChatPromptTemplate:
         """Creates a prompt for analyzing filtered data for one competitor."""
         template = """You are an expert data analyst specializing in competitive analysis.
